@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NotionDIAL: deforming concept manifolds with a weight-space dial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#efe9db; --panel:#faf6ee; --line:#e4dccb; --line2:#cdc1a9;
+    --fg:#2a251d; --body:#4c4335; --muted:#877c66; --dim:#a89d85;
+    --accent:#2563eb; --accent-weak:#dbe4f5; --ctrl:#9a8f77; --ring:#e6ddcc;
+    --track:#ece5d6; --warn:#8a5711; --warn-bg:#f6edd2; --warn-line:#e4d09a;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--body); margin:0; padding:26px 22px 48px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1320px; margin:0 auto;}
+  h1{font-size:20px; font-weight:650; color:var(--fg); margin:0 0 6px; letter-spacing:-.011em;}
+  h2{font-size:15px; font-weight:600; color:var(--fg); margin:28px 0 6px; letter-spacing:-.011em;}
+  .lede{font-size:13.5px; color:var(--body); max-width:900px; margin:0 0 4px;}
+  .lede b{color:var(--fg); font-weight:600;}
+  .lede b.clink{color:var(--accent); cursor:pointer; text-decoration:underline;
+                text-decoration-style:dotted; text-underline-offset:3px; text-decoration-thickness:1px;}
+  .lede b.clink:hover{text-decoration-style:solid;}
+  .eq{font-family:var(--mono); color:var(--accent);
+      background:var(--track); border:1px solid var(--line); border-radius:5px;
+      padding:1px 6px; font-size:12.5px; white-space:nowrap;}
+  .honesty{font-size:12px; color:var(--muted); max-width:900px; margin:8px 0 0;}
+  .honesty b{color:var(--fg); font-weight:600;}
+  .tabline{border:1px solid var(--warn-line); background:var(--warn-bg); border-radius:8px;
+           padding:9px 12px; margin:12px 0 2px; color:var(--warn); font-size:12.5px;}
+  .tabline b{color:#78350f;}
+
+  .dial{
+    display:flex; align-items:center; gap:16px; margin:20px 0 8px;
+    padding:12px 16px; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    position:sticky; top:8px; z-index:5; box-shadow:0 1px 3px rgba(94,72,38,.06);
+  }
+  .dial .lab{font-size:12.5px; font-weight:500; color:var(--muted); white-space:nowrap;}
+  .dial input[type=range]{
+    -webkit-appearance:none; appearance:none; flex:1; height:6px; border-radius:999px;
+    background:var(--track); cursor:pointer; outline:none;
+  }
+  .dial input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:16px; height:16px; border-radius:50%;
+    background:var(--accent); border:2px solid #fff; box-shadow:0 1px 3px rgba(94,72,38,.25); cursor:pointer;
+  }
+  .dial input[type=range]::-moz-range-thumb{
+    width:16px; height:16px; border-radius:50%; background:var(--accent);
+    border:2px solid #fff; box-shadow:0 1px 3px rgba(94,72,38,.25); cursor:pointer;
+  }
+  .seg{display:inline-flex; gap:2px; background:var(--track); border:1px solid var(--line);
+       border-radius:8px; padding:3px; flex-shrink:0;}
+  .seg button{font:inherit; font-size:12.5px; font-weight:500; padding:5px 12px; border:0;
+              border-radius:6px; cursor:pointer; background:transparent; color:var(--muted); white-space:nowrap;}
+  .seg button:hover{color:var(--fg);}
+  .seg button.on{background:var(--panel); color:var(--fg); font-weight:600; box-shadow:0 1px 2px rgba(94,72,38,.10);}
+  .lamVal{font-family:var(--mono); font-size:19px; font-weight:500;
+          color:var(--fg); min-width:112px; text-align:right; font-variant-numeric:tabular-nums;}
+  .ticks{display:flex; justify-content:space-between; font-size:10.5px; color:var(--dim);
+         margin:3px 4px 0; font-variant-numeric:tabular-nums;}
+  .toggleRow{display:flex; align-items:center; gap:8px; margin:10px 2px 0; font-size:12px; color:var(--muted);}
+  .toggleRow input{accent-color:var(--accent); width:15px; height:15px; cursor:pointer; flex-shrink:0;}
+  .swatch{display:inline-block; width:22px; height:0; border-top:2px dashed var(--ctrl); vertical-align:middle; margin-right:3px;}
+  .hint{font-size:12px; color:var(--muted); max-width:900px; margin:7px 2px 0; line-height:1.55;}
+
+  .grid{
+    display:grid; gap:16px; margin-top:14px;
+    grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+  }
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+         padding:14px 15px 12px; display:flex; flex-direction:column; box-shadow:0 1px 2px rgba(94,72,38,.04);}
+  .phead{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px;}
+  .pname{font-size:14px; font-weight:600; color:var(--fg);}
+  .psize{font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; font-family:var(--mono);}
+  .psub{font-size:11.5px; color:var(--muted); margin:0 0 8px; min-height:16px;}
+  svg{width:100%; height:auto; display:block;}
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(78px,1fr)); gap:7px; margin-top:9px;}
+  .stat{background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 9px;}
+  .stat .k{font-size:9.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; font-weight:600; line-height:1.3; min-height:24px;}
+  .stat .bar{height:5px; background:var(--track); border-radius:999px; overflow:hidden; margin:6px 0 5px;}
+  .stat .barFill{height:100%; width:0; background:var(--ctrl); border-radius:999px; transition:width .28s ease;}
+  .stat .barFill.target{background:var(--accent);}
+  .stat .v{font-size:15px; font-family:var(--mono); font-variant-numeric:tabular-nums; color:var(--fg);}
+  .stat .cv{font-size:11px; font-family:var(--mono); font-variant-numeric:tabular-nums; margin-top:1px; color:var(--dim);}
+  .foot{font-size:12px; color:var(--body); max-width:900px; line-height:1.6; margin:0 0 6px;}
+  .foot b{color:var(--fg);}
+  .details{margin-top:34px; border-top:1px solid var(--line); padding-top:6px;}
+  .details h2:first-child{margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NotionDIAL <span style="font-weight:400;color:var(--muted)">&middot; Dosed Interventions Along &lambda;</span></h1>
+  <p class="lede">A model does not keep a concept as a word on a shelf; it holds it as a shape, arranged in the
+  space of its own activations. Each figure below is one such shape, the <b id="ledeConcept" class="clink" title="click to switch concept">days of the week</b>, as a working
+  model actually carries them. Drag the slider to turn a single dial in that model's weights: the shape dissolves
+  as the concept is stripped away, then reassembles the moment you turn back. Five models answer the same dial,
+  from <b>124M to 7B</b> parameters, and the buttons choose which concept is put to the test.</p>
+
+  <div class="dial">
+    <span class="lab">dial &lambda;</span>
+    <div class="seg" id="conceptSeg">
+      <button id="segDays" class="on">days of the week</button>
+      <button id="segMonths">months of the year</button>
+      <button id="segNumbers">numbers one..twelve</button>
+    </div>
+    <input type="range" id="slider" min="0" max="25" step="1" value="22">
+    <span class="lamVal" id="lamVal">&lambda; = 1.00</span>
+  </div>
+  <div class="ticks"><span>&minus;0.5</span><span>0.0</span><span>0.5</span><span>1.0</span><span>1.5</span></div>
+  <p class="hint">At <b>&lambda; = 1</b> the model is untouched. Drag toward <b>0</b> to strip the concept away; push past <b>1</b> to overstate it. Every stop on the dial is a measurement, not an animation: what moves between them is the drawing, never the data.</p>
+  <div class="toggleRow">
+    <input type="checkbox" id="ctrlToggle" checked>
+    <label for="ctrlToggle"><span class="swatch"></span>Show the <b>placebo</b> (dashed): the same quantity of damage, aimed in a random direction rather than at the concept. That it barely stirs the shape is part of the case; the edit removes this one idea, and does not merely shrink the model.</label>
+  </div>
+
+  <p class="honesty tabline" id="numHonesty" style="display:none"><b>Numbers, read first.</b> While days and
+  months yield to a clean cut, numbers do not: in all five models, removing them also disturbs the model's
+  ordinary prose, because number words run through nearly everything a model does. The geometry still collapses,
+  but the cost is spread wider, as the neighbor readouts below show.</p>
+
+  <div class="grid" id="grid1"></div>
+
+  <div class="details">
+  <h2>How to read a panel</h2>
+  <p class="foot">The <b>solid, colored</b> shape is the concept under the real edit; drag toward &lambda;=0 and it
+  folds inward to a single point. The <b>dashed</b> shape is the placebo. Beneath each panel stand three measures:
+  the <b>target concept</b>, which should drain toward empty; the model's <b>task</b> on that concept, which
+  follows it down; and a <b>neighbor concept</b> riding the very same edited weights, which should hold near full.
+  That last bar is the crux. A cut is only specific if the thing beside it survives. The small figure is the exact
+  value, and <b>ctrl</b> marks the placebo. Each panel is scaled to its own 26 frames, so motion within a panel is
+  honestly comparable.</p>
+
+  <h2>What the sweep shows</h2>
+  <p class="foot">For <b>days</b> and for <b>months</b>, the edit takes the target concept and leaves its neighbors,
+  and the model's wider behavior, intact. The months are the instructive case: their shape collapses in every
+  model, yet only some models actually forget how to use them. Whether a concept truly <i>stands</i> on a given
+  manifold, then, is decided by the particular wiring of each model, not by its size. <b>Numbers</b> collapse as
+  well, though never cleanly. Where a preregistered test fails, the paper records it rather than burying it; a
+  result worth trusting is one that reports its own exceptions.</p>
+
+  <h2>Method &amp; honesty</h2>
+  <p class="foot">A single dial in weight space, <span class="eq">W(&lambda;) = W + (&lambda;&minus;1)&middot;M</span>,
+  bends the one real manifold; &lambda; moves across <b>26 preregistered doses</b> on the grid
+  [&minus;0.5&hellip;1.5]. Every point is a measured forward pass, neither interpolated nor invented; only the
+  positions of the dots glide between the frames we recorded. A random edit of equal size should barely disturb
+  these low-dimensional views, so the case for specificity rests on the readouts, not on the placebo alone. The
+  fuller atlas and the paper sit beside this demo in the repository, for anyone who would rather check than trust.
+  Nothing on this page was drawn that was not first measured.</p>
+  </div>
+</div>
+
+<script>
+const D = ___DATA___;
+const lams = D.lams;                       // 26 measured doses, ascending
+const showCtrl = () => document.getElementById("ctrlToggle").checked;
+let concept = "days";                      // "days" | "months" | "numbers"; default days
+// active variant of a panel: the months side lives in p.alt, the numbers side
+// in p.num where captured; fall back to the base (days) side otherwise.
+const act = p => {
+  if (concept === "months" && p.alt) return p.alt;
+  if (concept === "numbers" && p.num) return p.num;
+  return p;
+};
+
+function fmt(v){
+  if (typeof v !== "number" || !isFinite(v)) return "—";
+  if (v === 0) return "0";
+  if (Math.abs(v) < 0.005) return v.toExponential(1);
+  return v.toFixed(Math.abs(v) >= 10 ? 1 : 3);
+}
+
+function hue(p, i){
+  const n = p.labels ? p.labels.length : 7;
+  const t = n > 1 ? i/(n-1) : 0;                 // single-hue blue ramp, light -> dark around the ring
+  return `hsl(221,72%,${Math.round(63 - t*35)}%)`;
+}
+
+// shared scale across a panel's 26 frames (target + control): stable, honest
+function prepScale(p){
+  let lo = Infinity, hi = -Infinity;
+  const scan = rows => rows.forEach(r => (r.cloud||[]).forEach(c => {
+    const vals = (typeof c === "number") ? [c] : c;
+    vals.forEach(v => { if (isFinite(v)){ lo = Math.min(lo, v); hi = Math.max(hi, v); } });
+  }));
+  scan(p.target);
+  if (p.control) scan(p.control);
+  p._R = Math.max(Math.abs(lo), Math.abs(hi), 1e-9);
+}
+
+function cloudSVG(p, lam){
+  const VB = 300, C = VB/2, pad = 26, s = (C - pad)/p._R;
+  const n = p.labels.length;
+  const dotR = n <= 7 ? 5.5 : 4.2, fs = n <= 7 ? 9 : 8;
+  const map = c => [c[0]*s + C, -c[1]*s + C];   // y up
+  const poly = pts => {
+    let d = "";
+    const m = p.closed ? pts.length + 1 : pts.length;
+    for (let i = 0; i < m; i++){ const q = pts[i % pts.length]; d += (i ? "L" : "M") + q[0].toFixed(1) + "," + q[1].toFixed(1); }
+    return d;
+  };
+
+  let grid = `<circle cx="${C}" cy="${C}" r="${(C-pad)}" fill="none" stroke="var(--ring)" stroke-width="1"/>
+    <circle cx="${C}" cy="${C}" r="${(C-pad)/2}" fill="none" stroke="var(--ring)" stroke-width="1"/>
+    <line x1="${C}" y1="${pad}" x2="${C}" y2="${VB-pad}" stroke="var(--ring)" stroke-width="1"/>
+    <line x1="${pad}" y1="${C}" x2="${VB-pad}" y2="${C}" stroke="var(--ring)" stroke-width="1"/>`;
+
+  let ctrlLayer = "";
+  const cRow = p.control && p.control.find(r => r.lam === lam);
+  if (showCtrl() && cRow && cRow.cloud){
+    const cp = cRow.cloud.map(map);
+    ctrlLayer = `<path d="${poly(cp)}" fill="none" stroke="var(--ctrl)" stroke-width="1.3" stroke-dasharray="4,3" opacity="0.85" style="transition:d .28s ease"/>`
+      + cp.map(q => `<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="2.6" fill="none" stroke="var(--ctrl)" stroke-width="1.2" style="transition:cx .28s ease,cy .28s ease"/>`).join("");
+  }
+
+  const tRow = p.target.find(r => r.lam === lam);
+  const tp = (tRow && tRow.cloud) ? tRow.cloud.map(map) : [];
+  const tPath = tp.length ? `<path d="${poly(tp)}" fill="none" stroke="var(--line2)" stroke-width="1.4" style="transition:d .28s ease"/>` : "";
+  const tDots = tp.map((q,i) => `<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="${dotR}" fill="${hue(p,i)}" style="transition:cx .28s ease,cy .28s ease"/>
+    <text x="${(q[0]+dotR+1.5).toFixed(1)}" y="${(q[1]-dotR+1).toFixed(1)}" font-size="${fs}" fill="var(--muted)" style="transition:x .28s ease,y .28s ease">${p.labels[i]}</text>`).join("");
+
+  return `<svg viewBox="0 0 ${VB} ${VB}">${grid}${ctrlLayer}${tPath}${tDots}</svg>`;
+}
+
+function statsHTML(p, lam){
+  const row = p.target.find(r => r.lam === lam) || {};
+  const cRow = (showCtrl() && p.control) ? (p.control.find(r => r.lam === lam) || {}) : null;
+  return p.metrics.map(([k,lab], i) => {
+    const val = row[k];
+    const pct = (typeof val === "number" && isFinite(val)) ? Math.max(0, Math.min(1, val)) * 100 : 0;
+    const fill = `barFill${i === 0 ? " target" : ""}`;
+    const cv = (cRow && k in cRow && cRow[k] != null)
+      ? `<div class="cv">ctrl ${fmt(cRow[k])}</div>` : "";
+    return `<div class="stat"><div class="k" title="${lab}">${lab}</div>`
+      + `<div class="bar"><div class="${fill}" style="width:${pct.toFixed(0)}%"></div></div>`
+      + `<div class="v">${fmt(val)}</div>${cv}</div>`;
+  }).join("");
+}
+
+function buildPanels(){
+  const html = i => {
+    const p = D.panels[i];
+    return `
+    <div class="panel" data-i="${i}">
+      <div class="phead"><span class="pname">${p.name}</span><span class="psize">${p.size}</span></div>
+      <div class="psub" id="psub-${i}"></div>
+      <div class="cloud" id="cloud-${i}"></div>
+      <div class="stats" id="stats-${i}"></div>
+    </div>`;
+  };
+  document.getElementById("grid1").innerHTML =
+    D.panels.map((p,i) => p.section === 1 ? html(i) : "").join("");
+  D.panels.forEach(p => { prepScale(p); if (p.alt) prepScale(p.alt); if (p.num) prepScale(p.num); });
+}
+
+function render(){
+  const idx = +document.getElementById("slider").value;
+  const lam = lams[idx];
+  document.getElementById("lamVal").textContent = "λ = " + lam.toFixed(2);
+  D.panels.forEach((p,i) => {
+    const v = act(p);
+    document.getElementById("cloud-"+i).innerHTML = cloudSVG(v, lam);
+    document.getElementById("stats-"+i).innerHTML = statsHTML(v, lam);
+    document.getElementById("psub-"+i).textContent = v.sub;
+  });
+}
+
+const CONCEPT_ORDER = ["days", "months", "numbers"];
+const CONCEPT_NAME = {days: "days of the week", months: "months of the year", numbers: "numbers one to twelve"};
+
+function setConcept(c){
+  concept = c;
+  document.getElementById("segDays").className = c === "days" ? "on" : "";
+  document.getElementById("segMonths").className = c === "months" ? "on" : "";
+  document.getElementById("segNumbers").className = c === "numbers" ? "on" : "";
+  document.getElementById("numHonesty").style.display = c === "numbers" ? "" : "none";
+  document.getElementById("ledeConcept").textContent = CONCEPT_NAME[c];
+  render();
+}
+
+buildPanels();
+document.getElementById("slider").addEventListener("input", render);
+document.getElementById("ctrlToggle").addEventListener("change", render);
+document.getElementById("segDays").addEventListener("click", () => setConcept("days"));
+document.getElementById("segMonths").addEventListener("click", () => setConcept("months"));
+document.getElementById("segNumbers").addEventListener("click", () => setConcept("numbers"));
+document.getElementById("ledeConcept").addEventListener("click", () =>
+  setConcept(CONCEPT_ORDER[(CONCEPT_ORDER.indexOf(concept) + 1) % CONCEPT_ORDER.length]));
+render();
+</script>
+</body>
+</html>
